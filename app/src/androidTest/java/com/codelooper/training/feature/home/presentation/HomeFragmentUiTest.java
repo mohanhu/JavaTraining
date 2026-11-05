@@ -95,7 +95,6 @@ public class HomeFragmentUiTest {
         onView(withId(R.id.rv_list))
                 .check(matches(isDisplayed()));
     }
-
     @Test
     public void homeScreen_selectAndDeleteFlow() {
         // Step 1 : Check movie list is displayed
