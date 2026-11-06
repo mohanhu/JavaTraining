@@ -12,11 +12,20 @@
         android:layout_width="0dp"
         style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"
         android:layout_height="wrap_content"
-        app:startIconDrawable="@android:drawable/ic_menu_search"
+        app:startIconDrawable="@drawable/ic_search"
         app:layout_constraintTop_toTopOf="parent"
         app:endIconMode="clear_text"
-        app:shapeAppearance="@color/cardview_dark_background"
         app:hintEnabled="false"
+
+        app:boxBackgroundMode="outline"
+        app:boxStrokeColor="@color/blue_violet"
+        app:boxStrokeWidth="1dp"
+        app:boxStrokeWidthFocused="2dp"
+
+        android:textColor="?attr/colorOnBackground"
+        android:textColorHighlight="#00000000"
+        app:shapeAppearance="@style/SearchTextInputShape"
+
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 

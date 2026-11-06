@@ -10,4 +10,9 @@
         android:name="com.codelooper.training.feature.home.presentation.HomeFragment"
         android:label="fragment_home"
         tools:layout="@layout/fragment_home" />
+    <fragment
+        android:id="@+id/movieDetailFragment"
+        android:name="com.codelooper.training.feature.home.presentation.MovieDetailFragment"
+        android:label="fragment_movie_detail"
+        tools:layout="@layout/fragment_movie_detail" />
 </navigation>

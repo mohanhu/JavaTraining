@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.debugImplementation
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.hilt.android)
@@ -97,4 +99,6 @@ dependencies {
 
     implementation("androidx.room:room-runtime:2.8.4")
     annotationProcessor("androidx.room:room-compiler:2.8.4")
+
+    debugImplementation ("com.squareup.leakcanary:leakcanary-android:2.14")
 }
