@@ -1,6 +1,8 @@
 
 package com.codelooper.training.feature.home.presentation;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.Editable;
@@ -8,6 +10,7 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.OvershootInterpolator;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -15,14 +18,14 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.request.RequestOptions;
+import com.codelooper.training.R;
 import com.codelooper.training.core.utils.ViewUtils;
 import com.codelooper.training.databinding.FragmentHomeBinding;
 import com.codelooper.training.databinding.MovieItemBinding;
@@ -52,7 +55,6 @@ public class HomeFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-
         requireActivity().getOnBackPressedDispatcher().addCallback(new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -64,10 +66,14 @@ public class HomeFragment extends Fragment {
                 ) {
                     viewModel.enableToggle(0, false);
                 } else {
-                    requireActivity().finish();
+                    setEnabled(false);
+                    requireActivity().getOnBackPressedDispatcher().onBackPressed();
                 }
             }
         });
+
+        viewModel = new ViewModelProvider(this).get(HomeScreenViewModel.class);
+        viewModel.loadData();
     }
 
 
@@ -86,14 +92,10 @@ public class HomeFragment extends Fragment {
     public void onViewCreated(@org.jspecify.annotations.NonNull View view, @org.jspecify.annotations.Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        viewModel = new ViewModelProvider(this).get(HomeScreenViewModel.class);
-
         bindState(
                 binding,
                 viewModel
         );
-
-        viewModel.loadData();
     }
 
     private void bindState(
@@ -131,11 +133,15 @@ public class HomeFragment extends Fragment {
 
         MovieAdapter adapter = new MovieAdapter(
                 item -> {
-                    viewModel.toggleSelection(item);
+                    if (item.toggle) {
+                        viewModel.toggleSelection(item.id);
+                    } else {
+                        gotoDetail(item);
+                    }
                     System.out.println(TAG + ">> bindList: onItemClick  " + item);
                 },
                 item -> {
-                    viewModel.enableToggle(item, true);
+                    viewModel.enableToggle(item.id, true);
                     System.out.println(TAG + ">> bindList: onItemLongClick  " + item);
                 }
         );
@@ -231,6 +237,12 @@ public class HomeFragment extends Fragment {
 
     }
 
+    private void gotoDetail(MovieListResponseItem item) {
+        Bundle bundle = new Bundle();
+        bundle.putString("movie", item.image);
+        NavHostFragment.findNavController(this).navigate(R.id.movieDetailFragment, bundle);
+    }
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
@@ -257,12 +269,12 @@ record Error(String message) implements UiState {
 
 class MovieAdapter extends ListAdapter<MovieListResponseItem, MovieAdapter.ViewHolder> {
 
-    private final Consumer<Integer> onItemClick;
-    private final Consumer<Integer> onItemLongClick;
+    private final Consumer<MovieListResponseItem> onItemClick;
+    private final Consumer<MovieListResponseItem> onItemLongClick;
 
     protected MovieAdapter(
-            Consumer<Integer> onItemClick,
-            Consumer<Integer> onItemLongClick
+            Consumer<MovieListResponseItem> onItemClick,
+            Consumer<MovieListResponseItem> onItemLongClick
     ) {
         super(MovieDiffCallback);
         this.onItemClick = onItemClick;
@@ -292,16 +304,15 @@ class MovieAdapter extends ListAdapter<MovieListResponseItem, MovieAdapter.ViewH
             System.out.println("onBindViewHolder payloads " + payloads.get(0));
             if (payloads.get(0) instanceof Bundle bundle) {
                 if (bundle.containsKey("toggle")) {
-                    holder.binding.cbSelect.setVisibility(bundle.getBoolean("toggle") ? View.VISIBLE : View.GONE);
+                    holder.setToggle(holder.binding, bundle.getBoolean("toggle"));
                 }
                 if (bundle.containsKey("isSelected")) {
                     System.out.println("onBindViewHolder payloads isSelected " + bundle.getBoolean("isSelected"));
-                    holder.binding.cbSelect.setChecked(bundle.getBoolean("isSelected"));
+                    holder.setSelected(holder.binding, bundle.getBoolean("isSelected"));
                 }
             }
         }
     }
-
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         private final MovieItemBinding binding;
@@ -325,8 +336,8 @@ class MovieAdapter extends ListAdapter<MovieListResponseItem, MovieAdapter.ViewH
 
         void bind(
                 MovieListResponseItem item,
-                Consumer<Integer> onItemClick,
-                Consumer<Integer> onItemLongClick
+                Consumer<MovieListResponseItem> onItemClick,
+                Consumer<MovieListResponseItem> onItemLongClick
         ) {
 
             Glide.with(binding.getRoot())
@@ -334,29 +345,64 @@ class MovieAdapter extends ListAdapter<MovieListResponseItem, MovieAdapter.ViewH
                     .centerCrop()
                     .into(binding.ivMovie);
 
-            binding.cbSelect.setOnCheckedChangeListener(null);
+            setToggle(binding, item.toggle);
 
-            binding.cbSelect.setVisibility(
-                    item.toggle ? View.VISIBLE : View.GONE
-            );
+            setSelected(binding, item.isSelected);
 
-            binding.cbSelect.setChecked(item.isSelected);
-
-            binding.cbSelect.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                item.isSelected = isChecked;
+            binding.cbSelect.setOnClickListener(view -> {
+                onItemClick.accept(item);
             });
 
             ViewUtils.setOnDebounceClickListener(
                     binding.ivMovie,
-                    view -> onItemClick.accept(item.id)
+                    view -> onItemClick.accept(item)
             );
 
             binding.ivMovie.setOnLongClickListener(view -> {
-                onItemLongClick.accept(item.id);
+                onItemLongClick.accept(item);
                 return true;
             });
         }
+
+        public void setToggle(
+                MovieItemBinding binding,
+                boolean toggle
+        ) {
+            binding.cbSelect.setVisibility(toggle ? View.VISIBLE : View.GONE);
+            if (toggle) {
+                binding.cbSelect.setScaleX(0);
+                binding.cbSelect.setScaleY(0);
+                animateSelection(binding.cbSelect);
+            }
+        }
+
+        public void setSelected(
+                MovieItemBinding binding,
+                boolean isSelected
+        ) {
+            binding.cbSelect.setSelected(isSelected);
+            animateSelection(binding.cbSelect);
+        }
+
+        private void animateSelection(View view) {
+            ObjectAnimator scaleX = ObjectAnimator.ofFloat(
+                    view,
+                    "scaleX",
+                    1f, 1.3f, 0.85f, 1f
+            );
+            ObjectAnimator scaleY = ObjectAnimator.ofFloat(
+                    view,
+                    "scaleY",
+                    1f, 1.3f, 0.85f, 1f
+            );
+            AnimatorSet animatorSet = new AnimatorSet();
+            animatorSet.playTogether(scaleX, scaleY);
+            animatorSet.setDuration(350);
+            animatorSet.setInterpolator(new OvershootInterpolator(2f));
+            animatorSet.start();
+        }
     }
+
 
     private static final DiffUtil.ItemCallback<MovieListResponseItem> MovieDiffCallback = new DiffUtil.ItemCallback<MovieListResponseItem>() {
         @Override

@@ -135,6 +135,7 @@ public class HomeScreenViewModel extends ViewModel {
                 .filter(item -> !item.isSelected)
                 .collect(Collectors.toList());
         _movieList.setValue(updatedList);
+        enableToggle(0, false);
     }
 
     @Override
